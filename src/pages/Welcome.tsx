@@ -12,7 +12,7 @@ const Welcome = () => {
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-background via-accent to-secondary flex flex-col items-center justify-center p-6 relative">
       {/* Language and Theme toggles */}
-      <div className="absolute top-6 right-6 flex gap-2">
+      <div className={`absolute top-6 flex gap-2 ${language === 'ar' ? 'left-6' : 'right-6'}`}>
         <ThemeToggle />
         <LanguageToggle />
       </div>

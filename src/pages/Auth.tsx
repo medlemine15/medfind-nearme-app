@@ -7,17 +7,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowRight, Pill } from "lucide-react";
 import { toast } from "sonner";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Auth = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const userType = searchParams.get("type") || "user";
   const [isLogin, setIsLogin] = useState(true);
+  const { t, language } = useLanguage();
 
   const handleAuth = (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: Implement actual authentication with Lovable Cloud
-    toast.success(isLogin ? "تم تسجيل الدخول بنجاح!" : "تم إنشاء الحساب بنجاح!");
+    toast.success(isLogin ? t('login') + ' ' + 'بنجاح!' : t('register') + ' ' + 'بنجاح!');
     
     if (userType === "pharmacy") {
       navigate("/pharmacy-dashboard");
@@ -27,7 +31,12 @@ const Auth = () => {
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-gradient-to-br from-background via-accent to-secondary flex items-center justify-center p-6">
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-gradient-to-br from-background via-accent to-secondary flex items-center justify-center p-6 relative">
+      {/* Language and Theme toggles */}
+      <div className={`absolute top-6 flex gap-2 ${language === 'ar' ? 'left-6' : 'right-6'}`}>
+        <ThemeToggle />
+        <LanguageToggle />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-4">
           <div className="flex items-center gap-3">
@@ -45,24 +54,24 @@ const Auth = () => {
           </div>
           <div>
             <CardTitle className="text-2xl">
-              {userType === "pharmacy" ? "حساب الصيدلية" : "حساب المستخدم"}
+              {userType === "pharmacy" ? (language === 'ar' ? "حساب الصيدلية" : "Compte pharmacie") : (language === 'ar' ? "حساب المستخدم" : "Compte utilisateur")}
             </CardTitle>
             <CardDescription>
-              {isLogin ? "سجل دخولك للمتابعة" : "أنشئ حساباً جديداً"}
+              {isLogin ? (language === 'ar' ? "سجل دخولك للمتابعة" : "Connectez-vous pour continuer") : (language === 'ar' ? "أنشئ حساباً جديداً" : "Créer un nouveau compte")}
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <Tabs value={isLogin ? "login" : "signup"} onValueChange={(v) => setIsLogin(v === "login")}>
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">تسجيل الدخول</TabsTrigger>
-              <TabsTrigger value="signup">حساب جديد</TabsTrigger>
+              <TabsTrigger value="login">{t('login')}</TabsTrigger>
+              <TabsTrigger value="signup">{t('register')}</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login">
               <form onSubmit={handleAuth} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="email">البريد الإلكتروني</Label>
+                  <Label htmlFor="email">{t('email')}</Label>
                   <Input
                     id="email"
                     type="email"
@@ -72,7 +81,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">كلمة المرور</Label>
+                  <Label htmlFor="password">{t('password')}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -80,7 +89,7 @@ const Auth = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full">
-                  تسجيل الدخول
+                  {t('login')}
                 </Button>
               </form>
             </TabsContent>
@@ -89,7 +98,7 @@ const Auth = () => {
               <form onSubmit={handleAuth} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">
-                    {userType === "pharmacy" ? "اسم الصيدلية" : "الاسم الكامل"}
+                    {userType === "pharmacy" ? t('pharmacyName') : t('name')}
                   </Label>
                   <Input
                     id="name"
@@ -99,17 +108,17 @@ const Auth = () => {
                 </div>
                 {userType === "pharmacy" && (
                   <div className="space-y-2">
-                    <Label htmlFor="location">العنوان</Label>
+                    <Label htmlFor="location">{t('location')}</Label>
                     <Input
                       id="location"
                       type="text"
-                      placeholder="المدينة، الحي"
+                      placeholder={language === 'ar' ? "المدينة، الحي" : "Ville, quartier"}
                       required
                     />
                   </div>
                 )}
                 <div className="space-y-2">
-                  <Label htmlFor="phone">رقم الهاتف</Label>
+                  <Label htmlFor="phone">{t('phone')}</Label>
                   <Input
                     id="phone"
                     type="tel"
@@ -119,7 +128,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email-signup">البريد الإلكتروني</Label>
+                  <Label htmlFor="email-signup">{t('email')}</Label>
                   <Input
                     id="email-signup"
                     type="email"
@@ -129,7 +138,7 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password-signup">كلمة المرور</Label>
+                  <Label htmlFor="password-signup">{t('password')}</Label>
                   <Input
                     id="password-signup"
                     type="password"
@@ -137,7 +146,7 @@ const Auth = () => {
                   />
                 </div>
                 <Button type="submit" className="w-full">
-                  إنشاء الحساب
+                  {t('register')}
                 </Button>
               </form>
             </TabsContent>
