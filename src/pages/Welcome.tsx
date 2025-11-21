@@ -33,21 +33,6 @@ const Welcome = () => {
           {t('description')}
         </p>
 
-        {/* Features */}
-        <div className="space-y-3 pt-4">
-          <div className="flex items-center gap-3 bg-card/50 backdrop-blur p-4 rounded-xl">
-            <Search className="w-6 h-6 text-primary" />
-            <span className="text-foreground">{t('quickSearch')}</span>
-          </div>
-          <div className="flex items-center gap-3 bg-card/50 backdrop-blur p-4 rounded-xl">
-            <MapPin className="w-6 h-6 text-primary" />
-            <span className="text-foreground">{t('pharmacyLocations')}</span>
-          </div>
-          <div className="flex items-center gap-3 bg-card/50 backdrop-blur p-4 rounded-xl">
-            <Pill className="w-6 h-6 text-primary" />
-            <span className="text-foreground">{t('priceComparison')}</span>
-          </div>
-        </div>
 
         {/* Action Buttons */}
         <div className="space-y-4 pt-6">

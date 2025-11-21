@@ -15,34 +15,9 @@ const Home = () => {
       return;
     }
     
-    // TODO: Implement actual search from database
-    // Mock data for now
-    setResults([
-      {
-        id: 1,
-        pharmacyName: "صيدلية النور",
-        drugName: searchQuery,
-        price: 250,
-        location: "حي السلام، الجزائر",
-        distance: "1.2 كم",
-        phone: "0555123456",
-        lat: 36.7538,
-        lng: 3.0588
-      },
-      {
-        id: 2,
-        pharmacyName: "صيدلية الشفاء",
-        drugName: searchQuery,
-        price: 230,
-        location: "حي البدر، الجزائر",
-        distance: "2.5 كم",
-        phone: "0555987654",
-        lat: 36.7638,
-        lng: 3.0688
-      }
-    ]);
-    
-    toast.success(`تم العثور على ${2} صيدلية`);
+    // TODO: Implement search with real database
+    setResults([]);
+    toast.info("جاري البحث في قاعدة البيانات...");
   };
 
   return (
