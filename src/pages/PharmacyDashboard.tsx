@@ -1,47 +1,111 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pill, Edit2, Trash2, Menu } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Pill, Edit2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { ImportData } from "@/components/ImportData";
 
 interface Drug {
-  id: number;
+  id: string;
   name: string;
   price: number;
   quantity: number;
 }
 
 const PharmacyDashboard = () => {
-  const [drugs, setDrugs] = useState<Drug[]>([
-    { id: 1, name: "باراسيتامول 500mg", price: 150, quantity: 50 },
-    { id: 2, name: "أسبرين 100mg", price: 200, quantity: 30 },
-  ]);
+  const [drugs, setDrugs] = useState<Drug[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleAddDrug = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadDrugs();
+  }, []);
+
+  const loadDrugs = async () => {
+    try {
+      let pharmacyId = localStorage.getItem('pharmacy_id');
+      
+      if (!pharmacyId) {
+        const { data: pharmacy, error: pharmacyError } = await supabase
+          .from('pharmacies')
+          .insert({
+            name: "صيدلية النور",
+            address: "العنوان",
+            phone: "0000000000"
+          })
+          .select()
+          .single();
+
+        if (pharmacyError) throw pharmacyError;
+        pharmacyId = pharmacy.id;
+        localStorage.setItem('pharmacy_id', pharmacyId);
+      }
+
+      const { data, error } = await supabase
+        .from('drugs')
+        .select('*')
+        .eq('pharmacy_id', pharmacyId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setDrugs(data || []);
+    } catch (error) {
+      console.error('Error loading drugs:', error);
+      toast.error("حدث خطأ في تحميل البيانات");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddDrug = async (e: React.FormEvent) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
     
-    const newDrug: Drug = {
-      id: Date.now(),
-      name: formData.get("name") as string,
-      price: Number(formData.get("price")),
-      quantity: Number(formData.get("quantity")),
-    };
+    try {
+      const pharmacyId = localStorage.getItem('pharmacy_id');
+      
+      const { error } = await supabase
+        .from('drugs')
+        .insert({
+          pharmacy_id: pharmacyId,
+          name: formData.get("name") as string,
+          price: Number(formData.get("price")),
+          quantity: Number(formData.get("quantity")),
+        });
 
-    setDrugs([...drugs, newDrug]);
-    setIsAddDialogOpen(false);
-    toast.success("تمت إضافة الدواء بنجاح");
-    form.reset();
+      if (error) throw error;
+
+      setIsAddDialogOpen(false);
+      toast.success("تمت إضافة الدواء بنجاح");
+      form.reset();
+      loadDrugs();
+    } catch (error) {
+      console.error('Error adding drug:', error);
+      toast.error("حدث خطأ في إضافة الدواء");
+    }
   };
 
-  const handleDelete = (id: number) => {
-    setDrugs(drugs.filter(drug => drug.id !== id));
-    toast.success("تم حذف الدواء");
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('drugs')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast.success("تم حذف الدواء");
+      loadDrugs();
+    } catch (error) {
+      console.error('Error deleting drug:', error);
+      toast.error("حدث خطأ في حذف الدواء");
+    }
   };
 
   return (
@@ -58,9 +122,6 @@ const PharmacyDashboard = () => {
               <p className="text-sm text-muted-foreground">صيدلية النور</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon">
-            <Menu className="w-5 h-5" />
-          </Button>
         </div>
       </header>
 
@@ -90,44 +151,65 @@ const PharmacyDashboard = () => {
             </Card>
           </div>
 
-          {/* Add Drug Button */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-foreground">قائمة الأدوية</h2>
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 ml-2" />
-                  إضافة دواء
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>إضافة دواء جديد</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleAddDrug} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">اسم الدواء</Label>
-                    <Input id="name" name="name" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="price">السعر (دج)</Label>
-                    <Input id="price" name="price" type="number" required />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">الكمية المتوفرة</Label>
-                    <Input id="quantity" name="quantity" type="number" required />
-                  </div>
-                  <Button type="submit" className="w-full">
-                    إضافة
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <Tabs defaultValue="list" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="list">قائمة الأدوية</TabsTrigger>
+              <TabsTrigger value="import">
+                <Upload className="w-4 h-4 ml-2" />
+                استيراد البيانات
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Drugs List */}
-          <div className="space-y-4">
-            {drugs.map((drug) => (
+            <TabsContent value="list" className="space-y-6">
+              {/* Add Drug Button */}
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-foreground">الأدوية المتوفرة</h2>
+                <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 ml-2" />
+                      إضافة دواء
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>إضافة دواء جديد</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleAddDrug} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="name">اسم الدواء</Label>
+                        <Input id="name" name="name" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="price">السعر (دج)</Label>
+                        <Input id="price" name="price" type="number" required />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quantity">الكمية المتوفرة</Label>
+                        <Input id="quantity" name="quantity" type="number" required />
+                      </div>
+                      <Button type="submit" className="w-full">
+                        إضافة
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {/* Drugs List */}
+              {isLoading ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  جاري التحميل...
+                </div>
+              ) : drugs.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground">
+                    <p>لا توجد أدوية مسجلة. استخدم زر "إضافة دواء" أو "استيراد البيانات"</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {drugs.map((drug) => (
               <Card key={drug.id}>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -156,7 +238,14 @@ const PharmacyDashboard = () => {
                 </CardContent>
               </Card>
             ))}
-          </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="import">
+              <ImportData onImportComplete={loadDrugs} />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>
