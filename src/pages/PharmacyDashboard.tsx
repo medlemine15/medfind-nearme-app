@@ -118,7 +118,7 @@ const PharmacyDashboard = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-primary">{drugs.length}</div>
@@ -131,12 +131,6 @@ const PharmacyDashboard = () => {
                   {drugs.reduce((acc, drug) => acc + drug.quantity, 0)}
                 </div>
                 <div className="text-sm text-muted-foreground">الكمية الإجمالية</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <div className="text-2xl font-bold text-medical-blue">245</div>
-                <div className="text-sm text-muted-foreground">عدد الزيارات اليوم</div>
               </CardContent>
             </Card>
           </div>
