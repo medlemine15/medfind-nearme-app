@@ -28,22 +28,12 @@ const PharmacyDashboard = () => {
 
   const loadDrugs = async () => {
     try {
-      let pharmacyId = localStorage.getItem('pharmacy_id');
+      const pharmacyId = localStorage.getItem('pharmacy_id');
       
       if (!pharmacyId) {
-        const { data: pharmacy, error: pharmacyError } = await supabase
-          .from('pharmacies')
-          .insert({
-            name: "صيدلية النور",
-            address: "العنوان",
-            phone: "0000000000"
-          })
-          .select()
-          .single();
-
-        if (pharmacyError) throw pharmacyError;
-        pharmacyId = pharmacy.id;
-        localStorage.setItem('pharmacy_id', pharmacyId);
+        setDrugs([]);
+        setIsLoading(false);
+        return;
       }
 
       const { data, error } = await supabase
@@ -119,7 +109,7 @@ const PharmacyDashboard = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-foreground">لوحة التحكم</h1>
-              <p className="text-sm text-muted-foreground">صيدلية النور</p>
+              <p className="text-sm text-muted-foreground">إدارة الصيدلية</p>
             </div>
           </div>
         </div>
