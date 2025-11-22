@@ -27,7 +27,10 @@ const Home = () => {
       <header className="bg-card border-b border-border sticky top-0 z-10 backdrop-blur">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Tales Logo" className="h-10 object-contain" />
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-md p-1.5">
+              <img src={logo} alt="Tales Logo" className="w-full h-full object-contain" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">طالص</h1>
           </div>
         </div>
       </header>
