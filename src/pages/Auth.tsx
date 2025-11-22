@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight, Pill } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import logo from "@/assets/logo.png";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -48,8 +49,8 @@ const Auth = () => {
             >
               <ArrowRight className="h-5 w-5" />
             </Button>
-            <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center">
-              <Pill className="w-6 h-6 text-primary-foreground" />
+            <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary/80 rounded-2xl flex items-center justify-center shadow-lg p-1">
+              <img src={logo} alt="Tales Logo" className="w-full h-full object-contain" />
             </div>
           </div>
           <div>

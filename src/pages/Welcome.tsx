@@ -19,7 +19,15 @@ const Welcome = () => {
       <div className="max-w-md w-full space-y-8 text-center">
         {/* Logo */}
         <div className="flex flex-col items-center gap-4">
-          <img src={logo} alt="Tales Logo" className="w-48 h-48 object-contain" />
+          <div className="relative">
+            <div className="w-32 h-32 bg-gradient-to-br from-primary via-primary to-primary/80 rounded-3xl flex items-center justify-center shadow-2xl p-6 animate-in fade-in zoom-in duration-500">
+              <img src={logo} alt="Tales Logo" className="w-full h-full object-contain drop-shadow-lg" />
+            </div>
+          </div>
+          <div>
+            <h1 className="text-5xl font-bold text-foreground mb-2">{t('appName')}</h1>
+            <p className="text-xl text-muted-foreground">{t('appSubtitle')}</p>
+          </div>
         </div>
 
         {/* Description */}
