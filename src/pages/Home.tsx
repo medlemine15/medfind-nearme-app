@@ -1,14 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, MapPin, Phone } from "lucide-react";
+import { Search, MapPin, Phone, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
 
 const Home = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      navigate("/auth?type=user");
+      return;
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
 
   const handleSearch = () => {
     if (!searchQuery.trim()) {
@@ -21,16 +45,31 @@ const Home = () => {
     toast.info("جاري البحث في قاعدة البيانات...");
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg text-muted-foreground">جاري التحميل...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div dir="rtl" className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border sticky top-0 z-10 backdrop-blur">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-md p-1.5">
-              <img src={logo} alt="Tales Logo" className="w-full h-full object-contain" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center shadow-md p-1.5">
+                <img src={logo} alt="Tales Logo" className="w-full h-full object-contain" />
+              </div>
+              <h1 className="text-2xl font-bold text-foreground">طالص</h1>
             </div>
-            <h1 className="text-2xl font-bold text-foreground">طالص</h1>
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <LogOut className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>

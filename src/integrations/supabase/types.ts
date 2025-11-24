@@ -62,6 +62,7 @@ export type Database = {
           name: string
           phone: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           address: string
@@ -72,6 +73,7 @@ export type Database = {
           name: string
           phone?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           address?: string
@@ -82,6 +84,42 @@ export type Database = {
           name?: string
           phone?: string | null
           updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacies_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string | null
+          user_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id: string
+          name: string
+          phone?: string | null
+          updated_at?: string | null
+          user_type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string | null
+          user_type?: string
         }
         Relationships: []
       }
