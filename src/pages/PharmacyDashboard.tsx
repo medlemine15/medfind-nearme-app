@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, Upload } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ImportData } from "@/components/ImportData";
@@ -19,19 +20,50 @@ interface Drug {
 }
 
 const PharmacyDashboard = () => {
+  const navigate = useNavigate();
   const [drugs, setDrugs] = useState<Drug[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [pharmacyId, setPharmacyId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDrugs();
+    checkAuth();
   }, []);
 
-  const loadDrugs = async () => {
+  const checkAuth = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      navigate("/auth?type=pharmacy");
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('user_type')
+      .eq('id', session.user.id)
+      .single();
+
+    if (profile?.user_type !== 'pharmacy') {
+      toast.error("هذه الصفحة للصيدليات فقط");
+      navigate("/home");
+      return;
+    }
+
+    setPharmacyId(session.user.id);
+    loadDrugs(session.user.id);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/");
+  };
+
+  const loadDrugs = async (userId?: string) => {
     try {
-      const pharmacyId = localStorage.getItem('pharmacy_id');
+      const id = userId || pharmacyId;
       
-      if (!pharmacyId) {
+      if (!id) {
         setDrugs([]);
         setIsLoading(false);
         return;
@@ -40,7 +72,7 @@ const PharmacyDashboard = () => {
       const { data, error } = await supabase
         .from('drugs')
         .select('*')
-        .eq('pharmacy_id', pharmacyId)
+        .eq('pharmacy_id', id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -59,8 +91,11 @@ const PharmacyDashboard = () => {
     const formData = new FormData(form);
     
     try {
-      const pharmacyId = localStorage.getItem('pharmacy_id');
-      
+      if (!pharmacyId) {
+        toast.error("خطأ في التعرف على الصيدلية");
+        return;
+      }
+
       const { error } = await supabase
         .from('drugs')
         .insert({
@@ -113,6 +148,9 @@ const PharmacyDashboard = () => {
               <p className="text-sm text-muted-foreground">إدارة الصيدلية</p>
             </div>
           </div>
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="w-5 h-5" />
+          </Button>
         </div>
       </header>
 
@@ -228,7 +266,7 @@ const PharmacyDashboard = () => {
             </TabsContent>
 
             <TabsContent value="import">
-              <ImportData onImportComplete={loadDrugs} />
+              <ImportData onImportComplete={loadDrugs} pharmacyId={pharmacyId || ''} />
             </TabsContent>
           </Tabs>
         </div>

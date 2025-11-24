@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
 
 const Auth = () => {
@@ -17,18 +18,89 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const userType = searchParams.get("type") || "user";
   const [isLogin, setIsLogin] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const { t, language } = useLanguage();
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement actual authentication with Lovable Cloud
-    toast.success(isLogin ? t('login') + ' ' + 'بنجاح!' : t('register') + ' ' + 'بنجاح!');
+    setIsLoading(true);
     
-    if (userType === "pharmacy") {
-      navigate("/pharmacy-dashboard");
-    } else {
-      navigate("/home");
+    const formData = new FormData(e.target as HTMLFormElement);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      toast.error(language === 'ar' ? 'خطأ في تسجيل الدخول. تحقق من بياناتك.' : 'Erreur de connexion. Vérifiez vos identifiants.');
+      setIsLoading(false);
+      return;
     }
+
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_type')
+        .eq('id', data.user.id)
+        .single();
+
+      toast.success(language === 'ar' ? 'تم تسجيل الدخول بنجاح!' : 'Connexion réussie!');
+      
+      if (profile?.user_type === "pharmacy") {
+        navigate("/pharmacy-dashboard");
+      } else {
+        navigate("/home");
+      }
+    }
+    setIsLoading(false);
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    
+    const formData = new FormData(e.target as HTMLFormElement);
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const name = formData.get("name") as string;
+    const phone = formData.get("phone") as string;
+
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+          phone,
+          user_type: userType,
+        },
+        emailRedirectTo: `${window.location.origin}/`,
+      },
+    });
+
+    if (error) {
+      if (error.message.includes('already registered')) {
+        toast.error(language === 'ar' ? 'البريد الإلكتروني مسجل مسبقاً' : 'Email déjà enregistré');
+      } else {
+        toast.error(language === 'ar' ? 'خطأ في التسجيل. حاول مرة أخرى.' : 'Erreur d\'inscription. Réessayez.');
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    if (data.user) {
+      toast.success(language === 'ar' ? 'تم التسجيل بنجاح!' : 'Inscription réussie!');
+      
+      if (userType === "pharmacy") {
+        navigate("/pharmacy-dashboard");
+      } else {
+        navigate("/home");
+      }
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -70,11 +142,12 @@ const Auth = () => {
             </TabsList>
             
             <TabsContent value="login">
-              <form onSubmit={handleAuth} className="space-y-4 mt-4">
+              <form onSubmit={handleLogin} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">{t('email')}</Label>
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="example@email.com"
                     required
@@ -85,43 +158,35 @@ const Auth = () => {
                   <Label htmlFor="password">{t('password')}</Label>
                   <Input
                     id="password"
+                    name="password"
                     type="password"
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full">
-                  {t('login')}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (language === 'ar' ? 'جاري التحميل...' : 'Chargement...') : t('login')}
                 </Button>
               </form>
             </TabsContent>
             
             <TabsContent value="signup">
-              <form onSubmit={handleAuth} className="space-y-4 mt-4">
+              <form onSubmit={handleSignup} className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">
                     {userType === "pharmacy" ? t('pharmacyName') : t('name')}
                   </Label>
                   <Input
                     id="name"
+                    name="name"
                     type="text"
                     required
                   />
                 </div>
-                {userType === "pharmacy" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="location">{t('location')}</Label>
-                    <Input
-                      id="location"
-                      type="text"
-                      placeholder={language === 'ar' ? "المدينة، الحي" : "Ville, quartier"}
-                      required
-                    />
-                  </div>
-                )}
                 <div className="space-y-2">
                   <Label htmlFor="phone">{t('phone')}</Label>
                   <Input
                     id="phone"
+                    name="phone"
                     type="tel"
                     placeholder="0XX XXX XXXX"
                     required
@@ -132,6 +197,7 @@ const Auth = () => {
                   <Label htmlFor="email-signup">{t('email')}</Label>
                   <Input
                     id="email-signup"
+                    name="email"
                     type="email"
                     placeholder="example@email.com"
                     required
@@ -142,12 +208,14 @@ const Auth = () => {
                   <Label htmlFor="password-signup">{t('password')}</Label>
                   <Input
                     id="password-signup"
+                    name="password"
                     type="password"
+                    minLength={6}
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full">
-                  {t('register')}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (language === 'ar' ? 'جاري التحميل...' : 'Chargement...') : t('register')}
                 </Button>
               </form>
             </TabsContent>

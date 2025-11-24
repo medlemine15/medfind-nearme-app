@@ -8,9 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ImportDataProps {
   onImportComplete: () => void;
+  pharmacyId: string;
 }
 
-export const ImportData = ({ onImportComplete }: ImportDataProps) => {
+export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) => {
   const [isImporting, setIsImporting] = useState(false);
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,25 +35,6 @@ export const ImportData = ({ onImportComplete }: ImportDataProps) => {
             price: parseFloat(row.price || row['السعر']),
             quantity: parseInt(row.quantity || row['الكمية']),
           }));
-
-          // Get pharmacy ID from localStorage or create new pharmacy
-          let pharmacyId = localStorage.getItem('pharmacy_id');
-          
-          if (!pharmacyId) {
-            const { data: pharmacy, error: pharmacyError } = await supabase
-              .from('pharmacies')
-              .insert({
-                name: "صيدلية النور",
-                address: "العنوان",
-                phone: "0000000000"
-              })
-              .select()
-              .single();
-
-            if (pharmacyError) throw pharmacyError;
-            pharmacyId = pharmacy.id;
-            localStorage.setItem('pharmacy_id', pharmacyId);
-          }
 
           const drugsWithPharmacy = drugs.map(drug => ({
             ...drug,
