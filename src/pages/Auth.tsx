@@ -67,16 +67,31 @@ const Auth = () => {
     const password = formData.get("password") as string;
     const name = formData.get("name") as string;
     const phone = formData.get("phone") as string;
+    const address = formData.get("address") as string;
+
+    // Validate phone number: 8 digits starting with 2, 3, or 4
+    const phoneRegex = /^[234]\d{7}$/;
+    if (!phoneRegex.test(phone)) {
+      toast.error(language === 'ar' ? 'رقم الهاتف يجب أن يتكون من 8 أرقام ويبدأ بـ 2 أو 3 أو 4' : 'Le numéro de téléphone doit contenir 8 chiffres et commencer par 2, 3 ou 4');
+      setIsLoading(false);
+      return;
+    }
+
+    const signupData: any = {
+      name,
+      phone,
+      user_type: userType,
+    };
+
+    if (userType === "pharmacy" && address) {
+      signupData.address = address;
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: {
-          name,
-          phone,
-          user_type: userType,
-        },
+        data: signupData,
         emailRedirectTo: `${window.location.origin}/`,
       },
     });
@@ -92,13 +107,8 @@ const Auth = () => {
     }
 
     if (data.user) {
-      toast.success(language === 'ar' ? 'تم التسجيل بنجاح!' : 'Inscription réussie!');
-      
-      if (userType === "pharmacy") {
-        navigate("/pharmacy-dashboard");
-      } else {
-        navigate("/home");
-      }
+      toast.success(language === 'ar' ? 'تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. يرجى التحقق منه لإكمال التسجيل.' : 'Un email de confirmation a été envoyé. Veuillez vérifier votre boîte mail pour compléter l\'inscription.');
+      setIsLogin(true);
     }
     setIsLoading(false);
   };
@@ -188,11 +198,27 @@ const Auth = () => {
                     id="phone"
                     name="phone"
                     type="tel"
-                    placeholder="0XX XXX XXXX"
+                    placeholder={language === 'ar' ? '2xxxxxxx أو 3xxxxxxx أو 4xxxxxxx' : '2xxxxxxx ou 3xxxxxxx ou 4xxxxxxx'}
+                    pattern="[234]\d{7}"
+                    title={language === 'ar' ? 'رقم الهاتف يجب أن يتكون من 8 أرقام ويبدأ بـ 2 أو 3 أو 4' : 'Le numéro doit contenir 8 chiffres et commencer par 2, 3 ou 4'}
                     required
                     dir="ltr"
                   />
                 </div>
+                {userType === "pharmacy" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="address">
+                      {language === 'ar' ? 'عنوان الصيدلية' : 'Adresse de la pharmacie'}
+                    </Label>
+                    <Input
+                      id="address"
+                      name="address"
+                      type="text"
+                      placeholder={language === 'ar' ? 'أدخل عنوان الصيدلية' : 'Entrez l\'adresse de la pharmacie'}
+                      required
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="email-signup">{t('email')}</Label>
                   <Input
