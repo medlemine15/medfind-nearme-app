@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Upload, FileSpreadsheet, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ImportDataProps {
@@ -18,50 +19,89 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.endsWith('.csv')) {
-      toast.error("الرجاء تحميل ملف CSV");
+    const fileName = file.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (!isCSV && !isExcel) {
+      toast.error("الرجاء تحميل ملف CSV أو Excel");
       return;
     }
 
     setIsImporting(true);
 
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          const drugs = results.data.map((row: any) => ({
-            name: row.name || row['اسم الدواء'],
-            price: parseFloat(row.price || row['السعر']),
-            quantity: parseInt(row.quantity || row['الكمية']),
-          }));
-
-          const drugsWithPharmacy = drugs.map(drug => ({
-            ...drug,
-            pharmacy_id: pharmacyId
-          }));
-
-          const { error } = await supabase
-            .from('drugs')
-            .insert(drugsWithPharmacy);
-
-          if (error) throw error;
-
-          toast.success(`تم استيراد ${drugs.length} دواء بنجاح`);
-          onImportComplete();
-        } catch (error) {
-          console.error('Import error:', error);
-          toast.error("حدث خطأ أثناء الاستيراد");
-        } finally {
+    if (isCSV) {
+      // Handle CSV files
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          await processImportedData(results.data);
+        },
+        error: (error) => {
+          console.error('Parse error:', error);
+          toast.error("خطأ في قراءة الملف");
           setIsImporting(false);
         }
-      },
-      error: (error) => {
-        console.error('Parse error:', error);
+      });
+    } else {
+      // Handle Excel files
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = e.target?.result;
+          const workbook = XLSX.read(data, { type: 'binary' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          await processImportedData(jsonData);
+        } catch (error) {
+          console.error('Excel parse error:', error);
+          toast.error("خطأ في قراءة ملف Excel");
+          setIsImporting(false);
+        }
+      };
+      reader.onerror = () => {
         toast.error("خطأ في قراءة الملف");
         setIsImporting(false);
+      };
+      reader.readAsBinaryString(file);
+    }
+  };
+
+  const processImportedData = async (data: any[]) => {
+    try {
+      const drugs = data.map((row: any) => ({
+        name: row.name || row['اسم الدواء'] || row['Name'] || '',
+        price: parseFloat(row.price || row['السعر'] || row['Price'] || '0'),
+        quantity: parseInt(row.quantity || row['الكمية'] || row['Quantity'] || '0'),
+      })).filter(drug => drug.name && drug.price > 0);
+
+      if (drugs.length === 0) {
+        toast.error("لم يتم العثور على بيانات صالحة في الملف");
+        setIsImporting(false);
+        return;
       }
-    });
+
+      const drugsWithPharmacy = drugs.map(drug => ({
+        ...drug,
+        pharmacy_id: pharmacyId
+      }));
+
+      const { error } = await supabase
+        .from('drugs')
+        .insert(drugsWithPharmacy);
+
+      if (error) throw error;
+
+      toast.success(`تم استيراد ${drugs.length} دواء بنجاح`);
+      onImportComplete();
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error("حدث خطأ أثناء الاستيراد");
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   return (
@@ -70,10 +110,10 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileSpreadsheet className="w-5 h-5" />
-            استيراد من ملف CSV
+            استيراد من ملف
           </CardTitle>
           <CardDescription>
-            قم بتحميل ملف CSV يحتوي على بيانات الأدوية
+            قم بتحميل ملف CSV أو Excel يحتوي على بيانات الأدوية
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -90,7 +130,7 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
               <input
                 id="file-upload"
                 type="file"
-                accept=".csv"
+                accept=".csv,.xlsx,.xls"
                 onChange={handleFileUpload}
                 className="hidden"
                 disabled={isImporting}
@@ -102,7 +142,7 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
               >
                 <span>
                   <Upload className="w-4 h-4 ml-2" />
-                  {isImporting ? "جاري الاستيراد..." : "اختر ملف CSV"}
+                  {isImporting ? "جاري الاستيراد..." : "اختر ملف CSV أو Excel"}
                 </span>
               </Button>
             </label>
