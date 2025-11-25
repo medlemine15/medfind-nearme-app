@@ -205,7 +205,7 @@ const PharmacyDashboard = () => {
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="price">السعر (MRU)</Label>
-                        <Input id="price" name="price" type="number" required />
+                        <Input id="price" name="price" type="number" step="0.01" required />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="quantity">الكمية المتوفرة</Label>
@@ -241,7 +241,7 @@ const PharmacyDashboard = () => {
                         {drug.name}
                       </h3>
                       <div className="flex gap-4 text-sm text-muted-foreground">
-                        <span>السعر: {drug.price} MRU</span>
+                        <span>السعر: {drug.price}</span>
                         <span>الكمية: {drug.quantity}</span>
                       </div>
                     </div>

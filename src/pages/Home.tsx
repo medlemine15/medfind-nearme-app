@@ -126,7 +126,7 @@ const Home = () => {
                     </div>
                     <div className="text-left">
                       <div className="text-2xl font-bold text-primary">
-                        {result.price} MRU
+                        {result.price}
                       </div>
                     </div>
                   </div>
