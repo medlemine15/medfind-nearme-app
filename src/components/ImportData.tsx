@@ -20,8 +20,8 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
     if (!file) return;
 
     const fileName = file.name.toLowerCase();
-    const isCSV = fileName.endsWith('.csv');
-    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    const isCSV = fileName.endsWith('.csv') || fileName.endsWith('.tsv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.ods');
 
     if (!isCSV && !isExcel) {
       toast.error("الرجاء تحميل ملف CSV أو Excel");
@@ -71,14 +71,65 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
 
   const processImportedData = async (data: any[]) => {
     try {
-      const drugs = data.map((row: any) => ({
-        name: row.name || row['اسم الدواء'] || row['Name'] || '',
-        price: parseFloat(row.price || row['السعر'] || row['Price'] || '0'),
-        quantity: parseInt(row.quantity || row['الكمية'] || row['Quantity'] || '0'),
-      })).filter(drug => drug.name && drug.price > 0);
+      console.log('Raw imported data:', data);
+      
+      // Get all possible column names from the first row
+      const firstRow = data[0];
+      if (!firstRow) {
+        toast.error("الملف فارغ");
+        setIsImporting(false);
+        return;
+      }
+
+      console.log('First row columns:', Object.keys(firstRow));
+
+      // More flexible column name detection
+      const findColumnValue = (row: any, possibleNames: string[]): string => {
+        for (const name of possibleNames) {
+          const value = row[name];
+          if (value !== undefined && value !== null && value !== '') {
+            return String(value).trim();
+          }
+        }
+        return '';
+      };
+
+      const drugs = data
+        .map((row: any, index: number) => {
+          const name = findColumnValue(row, [
+            'name', 'Name', 'NAME', 'اسم الدواء', 'اسم', 'الاسم',
+            'Drug Name', 'drug_name', 'medicine', 'Medicine'
+          ]);
+          
+          const priceStr = findColumnValue(row, [
+            'price', 'Price', 'PRICE', 'السعر', 'سعر',
+            'Cost', 'cost', 'Amount', 'amount'
+          ]);
+          
+          const quantityStr = findColumnValue(row, [
+            'quantity', 'Quantity', 'QUANTITY', 'الكمية', 'كمية',
+            'Stock', 'stock', 'qty', 'QTY', 'amount'
+          ]);
+
+          const price = parseFloat(priceStr) || 0;
+          const quantity = parseInt(quantityStr) || 0;
+
+          console.log(`Row ${index + 1}:`, { name, price, quantity });
+
+          return { name, price, quantity };
+        })
+        .filter(drug => {
+          const isValid = drug.name && drug.price > 0;
+          if (!isValid) {
+            console.log('Filtered out invalid drug:', drug);
+          }
+          return isValid;
+        });
+
+      console.log('Valid drugs found:', drugs.length);
 
       if (drugs.length === 0) {
-        toast.error("لم يتم العثور على بيانات صالحة في الملف");
+        toast.error("لم يتم العثور على بيانات صالحة في الملف. تأكد من وجود أعمدة: الاسم، السعر، والكمية");
         setIsImporting(false);
         return;
       }
@@ -119,18 +170,19 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
         <CardContent>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
-              <p className="mb-2">تنسيق الملف المطلوب:</p>
+              <p className="mb-2">تنسيق الملف المطلوب (أي من الأسماء التالية):</p>
               <ul className="list-disc list-inside space-y-1">
-                <li>name: اسم الدواء</li>
-                <li>price: السعر</li>
-                <li>quantity: الكمية</li>
+                <li>اسم الدواء أو name أو Name</li>
+                <li>السعر أو price أو Price</li>
+                <li>الكمية أو quantity أو Quantity</li>
               </ul>
+              <p className="mt-2 text-xs">يدعم: CSV, Excel (.xlsx, .xls), OpenDocument (.ods)</p>
             </div>
             <label htmlFor="file-upload">
               <input
                 id="file-upload"
                 type="file"
-                accept=".csv,.xlsx,.xls"
+                accept=".csv,.xlsx,.xls,.ods,.tsv"
                 onChange={handleFileUpload}
                 className="hidden"
                 disabled={isImporting}
