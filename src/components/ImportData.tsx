@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, FileSpreadsheet, Link as LinkIcon } from "lucide-react";
+import { Upload, FileSpreadsheet, Link as LinkIcon, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -12,6 +12,12 @@ interface ImportDataProps {
   pharmacyId: string;
 }
 
+interface ParsedDrug {
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) => {
   const [isImporting, setIsImporting] = useState(false);
 
@@ -20,31 +26,32 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
     if (!file) return;
 
     const fileName = file.name.toLowerCase();
-    const isCSV = fileName.endsWith('.csv') || fileName.endsWith('.tsv');
+    const isCSV = fileName.endsWith('.csv') || fileName.endsWith('.tsv') || fileName.endsWith('.txt');
     const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.ods');
-
-    if (!isCSV && !isExcel) {
-      toast.error("الرجاء تحميل ملف CSV أو Excel");
-      return;
-    }
 
     setIsImporting(true);
 
     if (isCSV) {
-      // Handle CSV files
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async (results) => {
-          await processImportedData(results.data);
-        },
-        error: (error) => {
-          console.error('Parse error:', error);
+      // Try multiple delimiters for CSV/text files
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target?.result as string;
+        if (!text) {
           toast.error("خطأ في قراءة الملف");
           setIsImporting(false);
+          return;
         }
-      });
-    } else {
+        
+        // Detect and parse with the best delimiter
+        const data = parseTextContent(text);
+        await processImportedData(data);
+      };
+      reader.onerror = () => {
+        toast.error("خطأ في قراءة الملف");
+        setIsImporting(false);
+      };
+      reader.readAsText(file);
+    } else if (isExcel) {
       // Handle Excel files
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -53,8 +60,11 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
           const workbook = XLSX.read(data, { type: 'binary' });
           const firstSheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[firstSheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
-          await processImportedData(jsonData);
+          
+          // Convert to array of arrays first to handle any format
+          const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+          const parsedData = parseRawArrayData(rawData);
+          await processImportedData(parsedData);
         } catch (error) {
           console.error('Excel parse error:', error);
           toast.error("خطأ في قراءة ملف Excel");
@@ -66,76 +76,172 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
         setIsImporting(false);
       };
       reader.readAsBinaryString(file);
+    } else {
+      // Try to read any file as text
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const text = e.target?.result as string;
+          if (!text) {
+            toast.error("خطأ في قراءة الملف");
+            setIsImporting(false);
+            return;
+          }
+          const data = parseTextContent(text);
+          await processImportedData(data);
+        } catch (error) {
+          console.error('File parse error:', error);
+          toast.error("خطأ في قراءة الملف");
+          setIsImporting(false);
+        }
+      };
+      reader.onerror = () => {
+        toast.error("خطأ في قراءة الملف");
+        setIsImporting(false);
+      };
+      reader.readAsText(file);
     }
   };
 
-  const processImportedData = async (data: any[]) => {
-    try {
-      console.log('Raw imported data:', data);
+  // Parse text content with auto-detection of delimiter and format
+  const parseTextContent = (text: string): ParsedDrug[] => {
+    const lines = text.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length === 0) return [];
+
+    // Detect delimiter from the first line
+    const firstLine = lines[0];
+    const delimiters = [',', ';', '\t', '|'];
+    let bestDelimiter = ',';
+    let maxCount = 0;
+
+    for (const delimiter of delimiters) {
+      const count = (firstLine.match(new RegExp(delimiter === '|' ? '\\|' : delimiter, 'g')) || []).length;
+      if (count > maxCount) {
+        maxCount = count;
+        bestDelimiter = delimiter;
+      }
+    }
+
+    console.log('Detected delimiter:', bestDelimiter, 'Count:', maxCount);
+
+    // Parse lines
+    const rows: string[][] = lines.map(line => {
+      // Handle quoted values
+      const values: string[] = [];
+      let current = '';
+      let inQuotes = false;
       
-      // Get all possible column names from the first row
-      const firstRow = data[0];
-      if (!firstRow) {
-        toast.error("الملف فارغ");
-        setIsImporting(false);
-        return;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"' || char === "'") {
+          inQuotes = !inQuotes;
+        } else if (char === bestDelimiter && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim());
+      return values;
+    });
+
+    return parseRawArrayData(rows);
+  };
+
+  // Parse raw array data (works for both Excel and CSV)
+  const parseRawArrayData = (rows: any[][]): ParsedDrug[] => {
+    if (rows.length === 0) return [];
+
+    console.log('Raw rows:', rows);
+
+    // Find header row and column indices
+    let headerRowIndex = 0;
+    let nameColIndex = -1;
+    let priceColIndex = -1;
+    let quantityColIndex = -1;
+
+    const namePatterns = ['name', 'اسم', 'الاسم', 'اسم الدواء', 'drug', 'medicine', 'medication', 'medication_name', 'drug_name', 'product', 'المنتج', 'الدواء'];
+    const pricePatterns = ['price', 'السعر', 'سعر', 'cost', 'amount', 'value', 'القيمة', 'التكلفة', 'ثمن'];
+    const quantityPatterns = ['quantity', 'الكمية', 'كمية', 'qty', 'stock', 'count', 'العدد', 'المخزون', 'amount'];
+
+    // Search for header row in first 5 rows
+    for (let i = 0; i < Math.min(5, rows.length); i++) {
+      const row = rows[i];
+      if (!row || !Array.isArray(row)) continue;
+
+      for (let j = 0; j < row.length; j++) {
+        const cellValue = String(row[j] || '').toLowerCase().trim();
+        
+        if (namePatterns.some(p => cellValue.includes(p.toLowerCase()))) {
+          nameColIndex = j;
+          headerRowIndex = i;
+        }
+        if (pricePatterns.some(p => cellValue.includes(p.toLowerCase()))) {
+          priceColIndex = j;
+          headerRowIndex = i;
+        }
+        if (quantityPatterns.some(p => cellValue.includes(p.toLowerCase()))) {
+          quantityColIndex = j;
+          headerRowIndex = i;
+        }
       }
 
-      console.log('First row columns:', Object.keys(firstRow));
+      // If we found at least name and price columns, use this row as header
+      if (nameColIndex !== -1 && priceColIndex !== -1) {
+        break;
+      }
+    }
 
-      // More flexible column name detection
-      const findColumnValue = (row: any, possibleNames: string[]): string => {
-        for (const name of possibleNames) {
-          const value = row[name];
-          if (value !== undefined && value !== null && value !== '') {
-            return String(value).trim();
-          }
-        }
-        return '';
-      };
+    console.log('Header detection:', { headerRowIndex, nameColIndex, priceColIndex, quantityColIndex });
 
-      const drugs = data
-        .map((row: any, index: number) => {
-          const name = findColumnValue(row, [
-            'name', 'Name', 'NAME', 'اسم الدواء', 'اسم', 'الاسم',
-            'Drug Name', 'drug_name', 'medicine', 'Medicine'
-          ]);
-          
-          const priceStr = findColumnValue(row, [
-            'price', 'Price', 'PRICE', 'السعر', 'سعر',
-            'Cost', 'cost', 'Amount', 'amount'
-          ]);
-          
-          const quantityStr = findColumnValue(row, [
-            'quantity', 'Quantity', 'QUANTITY', 'الكمية', 'كمية',
-            'Stock', 'stock', 'qty', 'QTY', 'amount'
-          ]);
+    // If no header found, assume first column is name, second is price, third is quantity
+    if (nameColIndex === -1) {
+      nameColIndex = 0;
+      priceColIndex = 1;
+      quantityColIndex = 2;
+      headerRowIndex = -1; // No header row, start from 0
+    }
 
-          const price = parseFloat(priceStr) || 0;
-          const quantity = parseInt(quantityStr) || 0;
+    const drugs: ParsedDrug[] = [];
+    const startRow = headerRowIndex + 1;
 
-          console.log(`Row ${index + 1}:`, { name, price, quantity });
+    for (let i = startRow; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || !Array.isArray(row) || row.length === 0) continue;
 
-          return { name, price, quantity };
-        })
-        .filter(drug => {
-          const isValid = drug.name && drug.price > 0;
-          if (!isValid) {
-            console.log('Filtered out invalid drug:', drug);
-          }
-          return isValid;
-        });
+      const name = String(row[nameColIndex] || '').trim();
+      const priceStr = String(row[priceColIndex] || '').replace(/[^\d.,]/g, '').replace(',', '.');
+      const quantityStr = String(row[quantityColIndex !== -1 ? quantityColIndex : 2] || '').replace(/[^\d]/g, '');
 
-      console.log('Valid drugs found:', drugs.length);
+      const price = parseFloat(priceStr) || 0;
+      const quantity = parseInt(quantityStr) || 0;
 
+      console.log(`Row ${i}:`, { name, price, quantity, raw: row });
+
+      // Only require name and price > 0
+      if (name && name.length > 0 && price > 0) {
+        drugs.push({ name, price, quantity });
+      }
+    }
+
+    return drugs;
+  };
+
+  const processImportedData = async (drugs: ParsedDrug[]) => {
+    try {
+      console.log('Valid drugs to import:', drugs);
+      
       if (drugs.length === 0) {
-        toast.error("لم يتم العثور على بيانات صالحة في الملف. تأكد من وجود أعمدة: الاسم، السعر، والكمية");
+        toast.error("لم يتم العثور على بيانات صالحة في الملف. تأكد من وجود: اسم الدواء والسعر");
         setIsImporting(false);
         return;
       }
 
       const drugsWithPharmacy = drugs.map(drug => ({
-        ...drug,
+        name: drug.name,
+        price: drug.price,
+        quantity: drug.quantity,
         pharmacy_id: pharmacyId
       }));
 
@@ -164,25 +270,35 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
             استيراد من ملف
           </CardTitle>
           <CardDescription>
-            قم بتحميل ملف CSV أو Excel يحتوي على بيانات الأدوية
+            قم بتحميل أي ملف يحتوي على بيانات الأدوية
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
-              <p className="mb-2">تنسيق الملف المطلوب (أي من الأسماء التالية):</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>اسم الدواء أو name أو Name</li>
-                <li>السعر أو price أو Price</li>
-                <li>الكمية أو quantity أو Quantity</li>
+              <p className="mb-2 font-medium">التنسيقات المدعومة:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>Excel: xlsx, xls, ods</li>
+                <li>نصي: csv, tsv, txt</li>
+                <li>أي ملف نصي بفواصل</li>
               </ul>
-              <p className="mt-2 text-xs">يدعم: CSV, Excel (.xlsx, .xls), OpenDocument (.ods)</p>
+              <div className="mt-3 p-2 bg-muted rounded-md">
+                <p className="font-medium mb-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  يجب أن يحتوي الملف على:
+                </p>
+                <ul className="list-disc list-inside space-y-0.5 text-xs">
+                  <li>عمود الاسم (name أو اسم الدواء)</li>
+                  <li>عمود السعر (price أو السعر)</li>
+                  <li>عمود الكمية اختياري (quantity أو الكمية)</li>
+                </ul>
+              </div>
             </div>
             <label htmlFor="file-upload">
               <input
                 id="file-upload"
                 type="file"
-                accept=".csv,.xlsx,.xls,.ods,.tsv"
+                accept="*/*"
                 onChange={handleFileUpload}
                 className="hidden"
                 disabled={isImporting}
@@ -194,7 +310,7 @@ export const ImportData = ({ onImportComplete, pharmacyId }: ImportDataProps) =>
               >
                 <span>
                   <Upload className="w-4 h-4 ml-2" />
-                  {isImporting ? "جاري الاستيراد..." : "اختر ملف CSV أو Excel"}
+                  {isImporting ? "جاري الاستيراد..." : "اختر ملف للاستيراد"}
                 </span>
               </Button>
             </label>
