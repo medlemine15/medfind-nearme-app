@@ -3,13 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Edit2, Trash2, Upload, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ImportData } from "@/components/ImportData";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageToggle } from "@/components/LanguageToggle";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import logo from "@/assets/logo.png";
 
 interface Drug {
@@ -21,6 +24,7 @@ interface Drug {
 
 const PharmacyDashboard = () => {
   const navigate = useNavigate();
+  const { language, t } = useLanguage();
   const [drugs, setDrugs] = useState<Drug[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +49,7 @@ const PharmacyDashboard = () => {
       .single();
 
     if (profile?.user_type !== 'pharmacy') {
-      toast.error("هذه الصفحة للصيدليات فقط");
+      toast.error(t('pharmacyOnlyPage'));
       navigate("/home");
       return;
     }
@@ -79,7 +83,7 @@ const PharmacyDashboard = () => {
       setDrugs(data || []);
     } catch (error) {
       console.error('Error loading drugs:', error);
-      toast.error("حدث خطأ في تحميل البيانات");
+      toast.error(t('loadingError'));
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +96,7 @@ const PharmacyDashboard = () => {
     
     try {
       if (!pharmacyId) {
-        toast.error("خطأ في التعرف على الصيدلية");
+        toast.error(t('pharmacyIdentificationError'));
         return;
       }
 
@@ -108,12 +112,12 @@ const PharmacyDashboard = () => {
       if (error) throw error;
 
       setIsAddDialogOpen(false);
-      toast.success("تمت إضافة الدواء بنجاح");
+      toast.success(t('drugAddedSuccess'));
       form.reset();
       loadDrugs();
     } catch (error) {
       console.error('Error adding drug:', error);
-      toast.error("حدث خطأ في إضافة الدواء");
+      toast.error(t('addError'));
     }
   };
 
@@ -126,16 +130,16 @@ const PharmacyDashboard = () => {
 
       if (error) throw error;
       
-      toast.success("تم حذف الدواء");
+      toast.success(t('drugDeletedSuccess'));
       loadDrugs();
     } catch (error) {
       console.error('Error deleting drug:', error);
-      toast.error("حدث خطأ في حذف الدواء");
+      toast.error(t('deleteError'));
     }
   };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-background">
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} className="min-h-screen bg-background">
       {/* Header */}
       <header className="bg-card border-b border-border sticky top-0 z-10 backdrop-blur">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -144,13 +148,17 @@ const PharmacyDashboard = () => {
               <img src={logo} alt="Tales Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">لوحة التحكم</h1>
-              <p className="text-sm text-muted-foreground">إدارة الصيدلية</p>
+              <h1 className="text-xl font-bold text-foreground">{t('dashboard')}</h1>
+              <p className="text-sm text-muted-foreground">{t('pharmacyManagement')}</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout}>
-            <LogOut className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <ThemeToggle />
+            <Button variant="ghost" size="icon" onClick={handleLogout}>
+              <LogOut className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -161,7 +169,7 @@ const PharmacyDashboard = () => {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-2xl font-bold text-primary">{drugs.length}</div>
-                <div className="text-sm text-muted-foreground">إجمالي الأدوية</div>
+                <div className="text-sm text-muted-foreground">{t('totalDrugs')}</div>
               </CardContent>
             </Card>
             <Card>
@@ -169,50 +177,50 @@ const PharmacyDashboard = () => {
                 <div className="text-2xl font-bold text-success">
                   {drugs.reduce((acc, drug) => acc + drug.quantity, 0)}
                 </div>
-                <div className="text-sm text-muted-foreground">الكمية الإجمالية</div>
+                <div className="text-sm text-muted-foreground">{t('totalQuantity')}</div>
               </CardContent>
             </Card>
           </div>
 
           <Tabs defaultValue="list" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="list">قائمة الأدوية</TabsTrigger>
+              <TabsTrigger value="list">{t('drugsList')}</TabsTrigger>
               <TabsTrigger value="import">
-                <Upload className="w-4 h-4 ml-2" />
-                استيراد البيانات
+                <Upload className={`w-4 h-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
+                {t('importData')}
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="list" className="space-y-6">
               {/* Add Drug Button */}
               <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-foreground">الأدوية المتوفرة</h2>
+                <h2 className="text-2xl font-bold text-foreground">{t('availableDrugs')}</h2>
                 <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                   <DialogTrigger asChild>
                     <Button>
-                      <Plus className="w-4 h-4 ml-2" />
-                      إضافة دواء
+                      <Plus className={`w-4 h-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
+                      {t('addDrug')}
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>إضافة دواء جديد</DialogTitle>
+                      <DialogTitle>{t('addNewDrug')}</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleAddDrug} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="name">اسم الدواء</Label>
+                        <Label htmlFor="name">{t('drugName')}</Label>
                         <Input id="name" name="name" required />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="price">السعر (MRU)</Label>
+                        <Label htmlFor="price">{t('price')} (MRU)</Label>
                         <Input id="price" name="price" type="number" step="0.01" required />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="quantity">الكمية المتوفرة</Label>
+                        <Label htmlFor="quantity">{t('availableQuantity')}</Label>
                         <Input id="quantity" name="quantity" type="number" required />
                       </div>
                       <Button type="submit" className="w-full">
-                        إضافة
+                        {t('add')}
                       </Button>
                     </form>
                   </DialogContent>
@@ -222,45 +230,45 @@ const PharmacyDashboard = () => {
               {/* Drugs List */}
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  جاري التحميل...
+                  {t('loading')}
                 </div>
               ) : drugs.length === 0 ? (
                 <Card>
                   <CardContent className="py-8 text-center text-muted-foreground">
-                    <p>لا توجد أدوية مسجلة. استخدم زر "إضافة دواء" أو "استيراد البيانات"</p>
+                    <p>{t('noDrugsRegistered')}</p>
                   </CardContent>
                 </Card>
               ) : (
                 <div className="space-y-4">
                   {drugs.map((drug) => (
-              <Card key={drug.id}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-foreground mb-2">
-                        {drug.name}
-                      </h3>
-                      <div className="flex gap-4 text-sm text-muted-foreground">
-                        <span>السعر: {drug.price}</span>
-                        <span>الكمية: {drug.quantity}</span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="icon">
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={() => handleDelete(drug.id)}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <Card key={drug.id}>
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold text-foreground mb-2">
+                              {drug.name}
+                            </h3>
+                            <div className="flex gap-4 text-sm text-muted-foreground">
+                              <span>{t('price')}: {drug.price}</span>
+                              <span>{t('quantity')}: {drug.quantity}</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="icon">
+                              <Edit2 className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              onClick={() => handleDelete(drug.id)}
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </TabsContent>
