@@ -62,6 +62,7 @@ const Home = () => {
     toast.info(t('searchingDatabase'));
 
     // Search drugs by name
+    const searchTerm = searchQuery.trim();
     const { data: drugs, error } = await supabase
       .from('drugs')
       .select(`
@@ -79,7 +80,7 @@ const Home = () => {
           phone
         )
       `)
-      .ilike('name', `%${searchQuery}%`);
+      .ilike('name', `%${searchTerm}%`);
 
     if (error) {
       console.error('Search error:', error);
