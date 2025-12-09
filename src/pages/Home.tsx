@@ -9,14 +9,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import PharmacyMap from "@/components/PharmacyMap";
 import logo from "@/assets/logo.png";
+
+interface SearchResult {
+  id: string;
+  pharmacyId: string;
+  pharmacyName: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  phone: string;
+  drugName: string;
+  price: number;
+  quantity: number;
+}
 
 const Home = () => {
   const navigate = useNavigate();
   const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -38,16 +53,84 @@ const Home = () => {
     navigate("/");
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!searchQuery.trim()) {
       toast.error(t('pleaseEnterMedicineName'));
       return;
     }
-    
-    // TODO: Implement search with real database
-    setResults([]);
+
     toast.info(t('searchingDatabase'));
+
+    // Search drugs by name
+    const { data: drugs, error } = await supabase
+      .from('drugs')
+      .select(`
+        id,
+        name,
+        price,
+        quantity,
+        pharmacy_id,
+        pharmacies (
+          id,
+          name,
+          address,
+          latitude,
+          longitude,
+          phone
+        )
+      `)
+      .ilike('name', `%${searchQuery}%`);
+
+    if (error) {
+      console.error('Search error:', error);
+      toast.error(language === 'ar' ? 'حدث خطأ في البحث' : 'Erreur de recherche');
+      return;
+    }
+
+    if (!drugs || drugs.length === 0) {
+      setResults([]);
+      toast.info(language === 'ar' ? 'لم يتم العثور على نتائج' : 'Aucun résultat trouvé');
+      return;
+    }
+
+    const searchResults: SearchResult[] = drugs
+      .filter(drug => drug.pharmacies)
+      .map(drug => ({
+        id: drug.id,
+        pharmacyId: drug.pharmacy_id,
+        pharmacyName: (drug.pharmacies as any).name,
+        location: (drug.pharmacies as any).address,
+        latitude: (drug.pharmacies as any).latitude,
+        longitude: (drug.pharmacies as any).longitude,
+        phone: (drug.pharmacies as any).phone || '',
+        drugName: drug.name,
+        price: Number(drug.price),
+        quantity: drug.quantity,
+      }));
+
+    setResults(searchResults);
+    setShowMap(searchResults.length > 0);
+    toast.success(language === 'ar' ? `تم العثور على ${searchResults.length} نتيجة` : `${searchResults.length} résultats trouvés`);
   };
+
+  const handleCall = (phone: string) => {
+    if (phone) {
+      window.location.href = `tel:${phone}`;
+    } else {
+      toast.error(language === 'ar' ? 'رقم الهاتف غير متوفر' : 'Numéro non disponible');
+    }
+  };
+
+  const pharmaciesForMap = results.map(r => ({
+    id: r.pharmacyId,
+    name: r.pharmacyName,
+    latitude: r.latitude,
+    longitude: r.longitude,
+    address: r.location,
+    phone: r.phone,
+    drugName: r.drugName,
+    drugPrice: r.price,
+  }));
 
   if (isLoading) {
     return (
@@ -105,6 +188,21 @@ const Home = () => {
           </div>
         </div>
 
+        {/* Map Section */}
+        {showMap && results.length > 0 && (
+          <div className="max-w-2xl mx-auto mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">
+                {language === 'ar' ? 'موقع الصيدليات' : 'Emplacement des pharmacies'}
+              </h3>
+              <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
+                {showMap ? (language === 'ar' ? 'إخفاء الخريطة' : 'Masquer la carte') : (language === 'ar' ? 'عرض الخريطة' : 'Afficher la carte')}
+              </Button>
+            </div>
+            <PharmacyMap pharmacies={pharmaciesForMap} />
+          </div>
+        )}
+
         {/* Results */}
         {results.length > 0 && (
           <div className="max-w-2xl mx-auto space-y-4">
@@ -112,10 +210,12 @@ const Home = () => {
               <h3 className="text-lg font-semibold text-foreground">
                 {t('results')} ({results.length})
               </h3>
-              <Button variant="outline" size="sm">
-                <MapPin className={`w-4 h-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
-                {t('showOnMap')}
-              </Button>
+              {!showMap && (
+                <Button variant="outline" size="sm" onClick={() => setShowMap(true)}>
+                  <MapPin className={`w-4 h-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
+                  {t('showOnMap')}
+                </Button>
+              )}
             </div>
 
             {results.map((result) => (
@@ -126,25 +226,37 @@ const Home = () => {
                       <h4 className="text-lg font-semibold text-foreground mb-1">
                         {result.pharmacyName}
                       </h4>
+                      <p className="text-sm text-primary mb-1">{result.drugName}</p>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <MapPin className="w-4 h-4" />
                         <span>{result.location}</span>
-                        <span className="text-primary">• {result.distance}</span>
                       </div>
                     </div>
                     <div className={language === 'ar' ? 'text-left' : 'text-right'}>
                       <div className="text-2xl font-bold text-primary">
                         {result.price}
                       </div>
+                      <div className="text-sm text-muted-foreground">
+                        {language === 'ar' ? `الكمية: ${result.quantity}` : `Qté: ${result.quantity}`}
+                      </div>
                     </div>
                   </div>
                   
                   <div className="flex gap-2">
-                    <Button variant="outline" className="flex-1" size="sm">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1" 
+                      size="sm"
+                      onClick={() => setShowMap(true)}
+                    >
                       <MapPin className={`w-4 h-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
                       {t('locationLabel')}
                     </Button>
-                    <Button className="flex-1" size="sm">
+                    <Button 
+                      className="flex-1" 
+                      size="sm"
+                      onClick={() => handleCall(result.phone)}
+                    >
                       <Phone className={`w-4 h-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
                       {t('call')}
                     </Button>
