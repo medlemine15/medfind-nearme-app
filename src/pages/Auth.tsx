@@ -173,6 +173,16 @@ const Auth = () => {
                     required
                   />
                 </div>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="px-0 text-sm text-muted-foreground hover:text-primary"
+                    onClick={() => navigate("/reset-password")}
+                  >
+                    {language === 'ar' ? 'نسيت كلمة السر؟' : 'Mot de passe oublié?'}
+                  </Button>
+                </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (language === 'ar' ? 'جاري التحميل...' : 'Chargement...') : t('login')}
                 </Button>
