@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { MapPin, Phone, Building2, Navigation } from 'lucide-react';
+import { MapPin, Phone, Building2, Navigation, Locate } from 'lucide-react';
 import logoImage from '@/assets/logo.png';
 
 const PharmacyRegistration = () => {
@@ -23,6 +23,7 @@ const PharmacyRegistration = () => {
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const translations = {
@@ -30,9 +31,12 @@ const PharmacyRegistration = () => {
       title: 'تسجيل صيدلية جديدة',
       pharmacyName: 'اسم الصيدلية',
       phone: 'رقم الهاتف',
+      location: 'موقع الصيدلية',
       address: 'العنوان',
       latitude: 'خط العرض',
       longitude: 'خط الطول',
+      getLocation: 'تحديد موقعي',
+      gettingLocation: 'جاري التحديد...',
       register: 'تسجيل الصيدلية',
       success: 'تم تسجيل الصيدلية بنجاح',
       error: 'حدث خطأ في التسجيل',
@@ -44,14 +48,18 @@ const PharmacyRegistration = () => {
       phoneRequired: 'رقم الهاتف مطلوب',
       addressRequired: 'العنوان مطلوب',
       phoneInvalid: 'رقم الهاتف يجب أن يكون 8 أرقام ويبدأ بـ 2 أو 3 أو 4',
+      locationError: 'تعذر الحصول على الموقع',
     },
     fr: {
       title: 'Enregistrer une nouvelle pharmacie',
       pharmacyName: 'Nom de la pharmacie',
       phone: 'Téléphone',
+      location: 'Emplacement de la pharmacie',
       address: 'Adresse',
       latitude: 'Latitude',
       longitude: 'Longitude',
+      getLocation: 'Ma position',
+      gettingLocation: 'Localisation...',
       register: 'Enregistrer la pharmacie',
       success: 'Pharmacie enregistrée avec succès',
       error: 'Erreur lors de l\'enregistrement',
@@ -63,6 +71,7 @@ const PharmacyRegistration = () => {
       phoneRequired: 'Le téléphone est requis',
       addressRequired: 'L\'adresse est requise',
       phoneInvalid: 'Le téléphone doit avoir 8 chiffres et commencer par 2, 3 ou 4',
+      locationError: 'Impossible d\'obtenir la position',
     },
   };
 
@@ -105,6 +114,32 @@ const PharmacyRegistration = () => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: tr.locationError,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude.toFixed(6));
+        setLongitude(position.coords.longitude.toFixed(6));
+        setIsGettingLocation(false);
+      },
+      () => {
+        toast({
+          title: tr.locationError,
+          variant: 'destructive',
+        });
+        setIsGettingLocation(false);
+      }
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -208,56 +243,76 @@ const PharmacyRegistration = () => {
                 {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
               </div>
 
-              {/* Address */}
-              <div className="space-y-2">
-                <Label htmlFor="address" className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  {tr.address}
-                </Label>
-                <Input
-                  id="address"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder={tr.address}
-                  className={errors.address ? 'border-destructive' : ''}
-                />
-                {errors.address && <p className="text-sm text-destructive">{errors.address}</p>}
-              </div>
-
-              {/* Coordinates */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="latitude" className="flex items-center gap-2">
-                    <Navigation className="w-4 h-4" />
-                    {tr.latitude}
+              {/* Location Section */}
+              <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-base font-medium">
+                    <MapPin className="w-5 h-5 text-primary" />
+                    {tr.location}
                   </Label>
-                  <Input
-                    id="latitude"
-                    type="number"
-                    step="any"
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
-                    placeholder="18.0735"
-                    className={errors.latitude ? 'border-destructive' : ''}
-                  />
-                  {errors.latitude && <p className="text-sm text-destructive">{errors.latitude}</p>}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={getCurrentLocation}
+                    disabled={isGettingLocation}
+                    className="gap-2"
+                  >
+                    <Locate className={`w-4 h-4 ${isGettingLocation ? 'animate-pulse' : ''}`} />
+                    {isGettingLocation ? tr.gettingLocation : tr.getLocation}
+                  </Button>
                 </div>
 
+                {/* Address */}
                 <div className="space-y-2">
-                  <Label htmlFor="longitude" className="flex items-center gap-2">
-                    <Navigation className="w-4 h-4 rotate-90" />
-                    {tr.longitude}
+                  <Label htmlFor="address" className="text-sm text-muted-foreground">
+                    {tr.address}
                   </Label>
                   <Input
-                    id="longitude"
-                    type="number"
-                    step="any"
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                    placeholder="-15.9582"
-                    className={errors.longitude ? 'border-destructive' : ''}
+                    id="address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder={tr.address}
+                    className={errors.address ? 'border-destructive' : ''}
                   />
-                  {errors.longitude && <p className="text-sm text-destructive">{errors.longitude}</p>}
+                  {errors.address && <p className="text-sm text-destructive">{errors.address}</p>}
+                </div>
+
+                {/* Coordinates */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="latitude" className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Navigation className="w-3 h-3" />
+                      {tr.latitude}
+                    </Label>
+                    <Input
+                      id="latitude"
+                      type="number"
+                      step="any"
+                      value={latitude}
+                      onChange={(e) => setLatitude(e.target.value)}
+                      placeholder="18.0735"
+                      className={errors.latitude ? 'border-destructive' : ''}
+                    />
+                    {errors.latitude && <p className="text-sm text-destructive">{errors.latitude}</p>}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="longitude" className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Navigation className="w-3 h-3 rotate-90" />
+                      {tr.longitude}
+                    </Label>
+                    <Input
+                      id="longitude"
+                      type="number"
+                      step="any"
+                      value={longitude}
+                      onChange={(e) => setLongitude(e.target.value)}
+                      placeholder="-15.9582"
+                      className={errors.longitude ? 'border-destructive' : ''}
+                    />
+                    {errors.longitude && <p className="text-sm text-destructive">{errors.longitude}</p>}
+                  </div>
                 </div>
               </div>
 
