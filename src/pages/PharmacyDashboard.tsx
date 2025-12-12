@@ -10,6 +10,7 @@ import { Plus, Edit2, Trash2, Upload, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ImportData } from "@/components/ImportData";
+import { MedicineUpload } from "@/components/MedicineUpload";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -183,11 +184,14 @@ const PharmacyDashboard = () => {
           </div>
 
           <Tabs defaultValue="list" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="list">{t('drugsList')}</TabsTrigger>
               <TabsTrigger value="import">
                 <Upload className={`w-4 h-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
                 {t('importData')}
+              </TabsTrigger>
+              <TabsTrigger value="medicines">
+                {language === 'ar' ? 'رفع الأدوية' : 'Médicaments'}
               </TabsTrigger>
             </TabsList>
 
@@ -275,6 +279,10 @@ const PharmacyDashboard = () => {
 
             <TabsContent value="import">
               <ImportData onImportComplete={loadDrugs} pharmacyId={pharmacyId || ''} />
+            </TabsContent>
+
+            <TabsContent value="medicines">
+              <MedicineUpload pharmacyId={pharmacyId || ''} onUploadComplete={() => loadDrugs()} />
             </TabsContent>
           </Tabs>
         </div>
