@@ -184,12 +184,8 @@ const PharmacyDashboard = () => {
           </div>
 
           <Tabs defaultValue="list" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-6">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="list">{t('drugsList')}</TabsTrigger>
-              <TabsTrigger value="import">
-                <Upload className={`w-4 h-4 ${language === 'ar' ? 'ml-2' : 'mr-2'}`} />
-                {t('importData')}
-              </TabsTrigger>
               <TabsTrigger value="medicines">
                 {language === 'ar' ? 'رفع الأدوية' : 'Médicaments'}
               </TabsTrigger>
@@ -275,10 +271,6 @@ const PharmacyDashboard = () => {
                   ))}
                 </div>
               )}
-            </TabsContent>
-
-            <TabsContent value="import">
-              <ImportData onImportComplete={loadDrugs} pharmacyId={pharmacyId || ''} />
             </TabsContent>
 
             <TabsContent value="medicines">
