@@ -10,8 +10,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 interface MedicineRow {
   name: string;
-  dosage: string;
-  form: string;
   price: number;
   quantity: number;
 }
@@ -47,9 +45,7 @@ export const MedicineUpload = ({ pharmacyId, onUploadComplete }: MedicineUploadP
       preview: 'معاينة البيانات',
       rows: 'صف',
       name: 'الاسم',
-      dosage: 'الجرعة',
-      form: 'الشكل',
-      price: 'السعر',
+      price: 'السعر (MRU)',
       quantity: 'الكمية',
       clear: 'مسح',
     },
@@ -68,9 +64,7 @@ export const MedicineUpload = ({ pharmacyId, onUploadComplete }: MedicineUploadP
       preview: 'Aperçu des données',
       rows: 'lignes',
       name: 'Nom',
-      dosage: 'Dosage',
-      form: 'Forme',
-      price: 'Prix',
+      price: 'Prix (MRU)',
       quantity: 'Quantité',
       clear: 'Effacer',
     },
@@ -86,8 +80,6 @@ export const MedicineUpload = ({ pharmacyId, onUploadComplete }: MedicineUploadP
     const rows: MedicineRow[] = [];
 
     const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('اسم') || h.includes('nom'));
-    const dosageIdx = headers.findIndex(h => h.includes('dosage') || h.includes('جرعة') || h.includes('dose'));
-    const formIdx = headers.findIndex(h => h.includes('form') || h.includes('شكل') || h.includes('forme'));
     const priceIdx = headers.findIndex(h => h.includes('price') || h.includes('سعر') || h.includes('prix'));
     const qtyIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty') || h.includes('كمية') || h.includes('quantité'));
 
@@ -97,10 +89,8 @@ export const MedicineUpload = ({ pharmacyId, onUploadComplete }: MedicineUploadP
 
       rows.push({
         name: nameIdx >= 0 ? values[nameIdx] || '' : values[0] || '',
-        dosage: dosageIdx >= 0 ? values[dosageIdx] || '' : values[1] || '',
-        form: formIdx >= 0 ? values[formIdx] || '' : values[2] || '',
-        price: parseFloat(values[priceIdx >= 0 ? priceIdx : 3]) || 0,
-        quantity: parseInt(values[qtyIdx >= 0 ? qtyIdx : 4]) || 0,
+        price: parseFloat(values[priceIdx >= 0 ? priceIdx : 1]) || 0,
+        quantity: parseInt(values[qtyIdx >= 0 ? qtyIdx : 2]) || 0,
       });
     }
 
@@ -117,17 +107,13 @@ export const MedicineUpload = ({ pharmacyId, onUploadComplete }: MedicineUploadP
       const findKey = (patterns: string[]) => keys.find(k => patterns.some(p => k.toLowerCase().includes(p)));
 
       const nameKey = findKey(['name', 'اسم', 'nom']);
-      const dosageKey = findKey(['dosage', 'جرعة', 'dose']);
-      const formKey = findKey(['form', 'شكل', 'forme']);
       const priceKey = findKey(['price', 'سعر', 'prix']);
       const qtyKey = findKey(['quantity', 'qty', 'كمية', 'quantité']);
 
       return {
         name: String(nameKey ? row[nameKey] : row[keys[0]] || ''),
-        dosage: String(dosageKey ? row[dosageKey] : row[keys[1]] || ''),
-        form: String(formKey ? row[formKey] : row[keys[2]] || ''),
-        price: parseFloat(String(priceKey ? row[priceKey] : row[keys[3]])) || 0,
-        quantity: parseInt(String(qtyKey ? row[qtyKey] : row[keys[4]])) || 0,
+        price: parseFloat(String(priceKey ? row[priceKey] : row[keys[1]])) || 0,
+        quantity: parseInt(String(qtyKey ? row[qtyKey] : row[keys[2]])) || 0,
       };
     });
   };
@@ -183,8 +169,6 @@ export const MedicineUpload = ({ pharmacyId, onUploadComplete }: MedicineUploadP
     try {
       const medicinesData = parsedData.map(row => ({
         name: row.name,
-        dosage: row.dosage,
-        form: row.form,
         price: row.price,
         quantity: row.quantity,
         pharmacy_id: pharmacyId,
@@ -291,20 +275,16 @@ export const MedicineUpload = ({ pharmacyId, onUploadComplete }: MedicineUploadP
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky top-0 bg-muted">{t.name}</TableHead>
-                      <TableHead className="sticky top-0 bg-muted">{t.dosage}</TableHead>
-                      <TableHead className="sticky top-0 bg-muted">{t.form}</TableHead>
-                      <TableHead className="sticky top-0 bg-muted">{t.price}</TableHead>
                       <TableHead className="sticky top-0 bg-muted">{t.quantity}</TableHead>
+                      <TableHead className="sticky top-0 bg-muted">{t.price}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {parsedData.map((row, idx) => (
                       <TableRow key={idx}>
                         <TableCell className="font-medium">{row.name}</TableCell>
-                        <TableCell>{row.dosage}</TableCell>
-                        <TableCell>{row.form}</TableCell>
-                        <TableCell>{row.price}</TableCell>
                         <TableCell>{row.quantity}</TableCell>
+                        <TableCell>{row.price}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
