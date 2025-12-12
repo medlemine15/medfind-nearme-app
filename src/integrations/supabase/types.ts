@@ -52,6 +52,42 @@ export type Database = {
           },
         ]
       }
+      medicines: {
+        Row: {
+          created_at: string | null
+          dosage: string | null
+          form: string | null
+          id: string
+          name: string
+          pharmacy_id: string
+          price: number | null
+          quantity: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          dosage?: string | null
+          form?: string | null
+          id?: string
+          name: string
+          pharmacy_id: string
+          price?: number | null
+          quantity?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          dosage?: string | null
+          form?: string | null
+          id?: string
+          name?: string
+          pharmacy_id?: string
+          price?: number | null
+          quantity?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       pharmacies: {
         Row: {
           address: string
