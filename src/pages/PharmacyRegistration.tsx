@@ -9,8 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { LanguageToggle } from '@/components/LanguageToggle';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { MapPin, Phone, Building2, Navigation, Locate } from 'lucide-react';
+import { MapPin, Phone, Building2 } from 'lucide-react';
 import logoImage from '@/assets/logo.png';
+import LocationPicker from '@/components/LocationPicker';
 
 const PharmacyRegistration = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const PharmacyRegistration = () => {
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const translations = {
@@ -33,22 +34,14 @@ const PharmacyRegistration = () => {
       phone: 'رقم الهاتف',
       location: 'موقع الصيدلية',
       address: 'العنوان',
-      latitude: 'خط العرض',
-      longitude: 'خط الطول',
-      getLocation: 'تحديد موقعي',
-      gettingLocation: 'جاري التحديد...',
+      selectLocation: 'اضغط لتحديد الموقع على الخريطة',
       register: 'تسجيل الصيدلية',
       success: 'تم تسجيل الصيدلية بنجاح',
       error: 'حدث خطأ في التسجيل',
-      latRequired: 'خط العرض مطلوب',
-      lngRequired: 'خط الطول مطلوب',
-      latRange: 'خط العرض يجب أن يكون بين -90 و 90',
-      lngRange: 'خط الطول يجب أن يكون بين -180 و 180',
       nameRequired: 'اسم الصيدلية مطلوب',
       phoneRequired: 'رقم الهاتف مطلوب',
-      addressRequired: 'العنوان مطلوب',
+      locationRequired: 'الرجاء تحديد موقع الصيدلية على الخريطة',
       phoneInvalid: 'رقم الهاتف يجب أن يكون 8 أرقام ويبدأ بـ 2 أو 3 أو 4',
-      locationError: 'تعذر الحصول على الموقع',
     },
     fr: {
       title: 'Enregistrer une nouvelle pharmacie',
@@ -56,22 +49,14 @@ const PharmacyRegistration = () => {
       phone: 'Téléphone',
       location: 'Emplacement de la pharmacie',
       address: 'Adresse',
-      latitude: 'Latitude',
-      longitude: 'Longitude',
-      getLocation: 'Ma position',
-      gettingLocation: 'Localisation...',
+      selectLocation: 'Appuyez pour sélectionner l\'emplacement sur la carte',
       register: 'Enregistrer la pharmacie',
       success: 'Pharmacie enregistrée avec succès',
       error: 'Erreur lors de l\'enregistrement',
-      latRequired: 'La latitude est requise',
-      lngRequired: 'La longitude est requise',
-      latRange: 'La latitude doit être entre -90 et 90',
-      lngRange: 'La longitude doit être entre -180 et 180',
       nameRequired: 'Le nom de la pharmacie est requis',
       phoneRequired: 'Le téléphone est requis',
-      addressRequired: 'L\'adresse est requise',
+      locationRequired: 'Veuillez sélectionner l\'emplacement de la pharmacie sur la carte',
       phoneInvalid: 'Le téléphone doit avoir 8 chiffres et commencer par 2, 3 ou 4',
-      locationError: 'Impossible d\'obtenir la position',
     },
   };
 
@@ -90,56 +75,19 @@ const PharmacyRegistration = () => {
       newErrors.phone = tr.phoneInvalid;
     }
 
-    if (!address.trim()) {
-      newErrors.address = tr.addressRequired;
-    }
-
-    if (!latitude.trim()) {
-      newErrors.latitude = tr.latRequired;
-    } else {
-      const lat = parseFloat(latitude);
-      if (isNaN(lat) || lat < -90 || lat > 90) {
-        newErrors.latitude = tr.latRange;
-      }
-    }
-
-    if (!longitude.trim()) {
-      newErrors.longitude = tr.lngRequired;
-    } else {
-      const lng = parseFloat(longitude);
-      if (isNaN(lng) || lng < -180 || lng > 180) {
-        newErrors.longitude = tr.lngRange;
-      }
+    if (!latitude || !longitude || !address) {
+      newErrors.location = tr.locationRequired;
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const getCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast({
-        title: tr.locationError,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsGettingLocation(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude.toFixed(6));
-        setLongitude(position.coords.longitude.toFixed(6));
-        setIsGettingLocation(false);
-      },
-      () => {
-        toast({
-          title: tr.locationError,
-          variant: 'destructive',
-        });
-        setIsGettingLocation(false);
-      }
-    );
+  const handleLocationConfirm = (data: { address: string; latitude: number; longitude: number }) => {
+    setAddress(data.address);
+    setLatitude(data.latitude.toString());
+    setLongitude(data.longitude.toString());
+    setErrors((prev) => ({ ...prev, location: '' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -245,75 +193,40 @@ const PharmacyRegistration = () => {
 
               {/* Location Section */}
               <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2 text-base font-medium">
-                    <MapPin className="w-5 h-5 text-primary" />
-                    {tr.location}
-                  </Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={getCurrentLocation}
-                    disabled={isGettingLocation}
-                    className="gap-2"
-                  >
-                    <Locate className={`w-4 h-4 ${isGettingLocation ? 'animate-pulse' : ''}`} />
-                    {isGettingLocation ? tr.gettingLocation : tr.getLocation}
-                  </Button>
-                </div>
+                <Label className="flex items-center gap-2 text-base font-medium">
+                  <MapPin className="w-5 h-5 text-primary" />
+                  {tr.location}
+                </Label>
 
-                {/* Address */}
-                <div className="space-y-2">
-                  <Label htmlFor="address" className="text-sm text-muted-foreground">
-                    {tr.address}
-                  </Label>
-                  <Input
-                    id="address"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder={tr.address}
-                    className={errors.address ? 'border-destructive' : ''}
-                  />
-                  {errors.address && <p className="text-sm text-destructive">{errors.address}</p>}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLocationPicker(true)}
+                  className={`w-full p-3 rounded-md border text-start transition-colors ${
+                    address
+                      ? 'border-primary bg-primary/5'
+                      : errors.location
+                      ? 'border-destructive bg-destructive/5'
+                      : 'border-border bg-background hover:bg-muted'
+                  }`}
+                >
+                  {address ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-foreground">{address}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {latitude}, {longitude}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      <span className="text-sm">{tr.selectLocation}</span>
+                    </div>
+                  )}
+                </button>
 
-                {/* Coordinates */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="latitude" className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Navigation className="w-3 h-3" />
-                      {tr.latitude}
-                    </Label>
-                    <Input
-                      id="latitude"
-                      type="number"
-                      step="any"
-                      value={latitude}
-                      onChange={(e) => setLatitude(e.target.value)}
-                      placeholder="18.0735"
-                      className={errors.latitude ? 'border-destructive' : ''}
-                    />
-                    {errors.latitude && <p className="text-sm text-destructive">{errors.latitude}</p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="longitude" className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Navigation className="w-3 h-3 rotate-90" />
-                      {tr.longitude}
-                    </Label>
-                    <Input
-                      id="longitude"
-                      type="number"
-                      step="any"
-                      value={longitude}
-                      onChange={(e) => setLongitude(e.target.value)}
-                      placeholder="-15.9582"
-                      className={errors.longitude ? 'border-destructive' : ''}
-                    />
-                    {errors.longitude && <p className="text-sm text-destructive">{errors.longitude}</p>}
-                  </div>
-                </div>
+                {errors.location && (
+                  <p className="text-sm text-destructive">{errors.location}</p>
+                )}
               </div>
 
               <Button
@@ -327,6 +240,12 @@ const PharmacyRegistration = () => {
           </CardContent>
         </Card>
       </div>
+
+      <LocationPicker
+        open={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onConfirm={handleLocationConfirm}
+      />
     </div>
   );
 };
