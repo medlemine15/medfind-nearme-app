@@ -5,13 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { LanguageToggle } from "@/components/LanguageToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo.png";
+import LocationPicker from "@/components/LocationPicker";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -20,6 +21,12 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const { t, language } = useLanguage();
+
+  const [pharmacyAddress, setPharmacyAddress] = useState("");
+  const [pharmacyLat, setPharmacyLat] = useState<string>("");
+  const [pharmacyLng, setPharmacyLng] = useState<string>("");
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [pharmacyLocationError, setPharmacyLocationError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +74,6 @@ const Auth = () => {
     const password = formData.get("password") as string;
     const name = formData.get("name") as string;
     const phone = formData.get("phone") as string;
-    const address = formData.get("address") as string;
 
     // Validate phone number: 8 digits starting with 2, 3, or 4
     const phoneRegex = /^[234]\d{7}$/;
@@ -77,14 +83,28 @@ const Auth = () => {
       return;
     }
 
+    if (userType === "pharmacy") {
+      if (!pharmacyAddress || !pharmacyLat || !pharmacyLng) {
+        const message = language === 'ar'
+          ? 'الرجاء تحديد موقع الصيدلية على الخريطة.'
+          : 'Veuillez sélectionner l\'emplacement de la pharmacie sur la carte.';
+        toast.error(message);
+        setPharmacyLocationError(message);
+        setIsLoading(false);
+        return;
+      }
+    }
+
     const signupData: any = {
       name,
       phone,
       user_type: userType,
     };
 
-    if (userType === "pharmacy" && address) {
-      signupData.address = address;
+    if (userType === "pharmacy") {
+      signupData.address = pharmacyAddress;
+      signupData.latitude = parseFloat(pharmacyLat);
+      signupData.longitude = parseFloat(pharmacyLng);
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -111,6 +131,13 @@ const Auth = () => {
       setIsLogin(true);
     }
     setIsLoading(false);
+  };
+
+  const handleLocationConfirm = (data: { address: string; latitude: number; longitude: number }) => {
+    setPharmacyAddress(data.address);
+    setPharmacyLat(data.latitude.toString());
+    setPharmacyLng(data.longitude.toString());
+    setPharmacyLocationError(null);
   };
 
   return (
@@ -220,13 +247,29 @@ const Auth = () => {
                     <Label htmlFor="address">
                       {language === 'ar' ? 'عنوان الصيدلية' : 'Adresse de la pharmacie'}
                     </Label>
-                    <Input
-                      id="address"
-                      name="address"
-                      type="text"
-                      placeholder={language === 'ar' ? 'أدخل عنوان الصيدلية' : 'Entrez l\'adresse de la pharmacie'}
-                      required
-                    />
+                    <div className="space-y-1">
+                      <div className="relative">
+                        <Input
+                          id="address"
+                          name="address"
+                          type="text"
+                          readOnly
+                          value={pharmacyAddress}
+                          placeholder={language === 'ar' ? 'اضغط لاختيار العنوان من الخريطة' : 'Appuyez pour choisir l\'adresse sur la carte'}
+                          onClick={() => setShowLocationPicker(true)}
+                          className={pharmacyLocationError ? 'pr-10 border-destructive' : 'pr-10'}
+                        />
+                        <MapPin className="w-4 h-4 text-primary absolute inset-y-0 my-auto right-3" />
+                      </div>
+                      {pharmacyLocationError && (
+                        <p className="text-xs text-destructive">{pharmacyLocationError}</p>
+                      )}
+                      {pharmacyAddress && pharmacyLat && pharmacyLng && (
+                        <p className="text-xs text-muted-foreground">
+                          {pharmacyLat}, {pharmacyLng}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
                 <div className="space-y-2">
@@ -258,6 +301,12 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      <LocationPicker
+        open={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onConfirm={handleLocationConfirm}
+      />
     </div>
   );
 };
