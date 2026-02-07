@@ -28,7 +28,7 @@ const Auth = () => {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [pharmacyLocationError, setPharmacyLocationError] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent, retryCount = 0) => {
     e.preventDefault();
     setIsLoading(true);
     
@@ -36,36 +36,62 @@ const Auth = () => {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      toast.error(language === 'ar' ? 'خطأ في تسجيل الدخول. تحقق من بياناتك.' : 'Erreur de connexion. Vérifiez vos identifiants.');
-      setIsLoading(false);
-      return;
-    }
-
-    if (data.user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('user_type')
-        .eq('id', data.user.id)
-        .single();
-
-      toast.success(language === 'ar' ? 'تم تسجيل الدخول بنجاح!' : 'Connexion réussie!');
-      
-      if (profile?.user_type === "pharmacy") {
-        navigate("/pharmacy-dashboard");
-      } else {
-        navigate("/home");
+      if (error) {
+        // Check if it's a network error
+        if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch')) {
+          if (retryCount < 3) {
+            toast.info(language === 'ar' ? 'جاري إعادة المحاولة...' : 'Nouvelle tentative...');
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+            setIsLoading(false);
+            return handleLogin(e, retryCount + 1);
+          }
+          toast.error(language === 'ar' ? 'مشكلة في الاتصال بالشبكة. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.' : 'Problème de connexion réseau. Vérifiez votre connexion internet.');
+        } else if (error.message.includes('Invalid login credentials')) {
+          toast.error(language === 'ar' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة.' : 'Email ou mot de passe incorrect.');
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error(language === 'ar' ? 'يرجى تأكيد بريدك الإلكتروني أولاً.' : 'Veuillez confirmer votre email d\'abord.');
+        } else {
+          toast.error(language === 'ar' ? 'خطأ في تسجيل الدخول. تحقق من بياناتك.' : 'Erreur de connexion. Vérifiez vos identifiants.');
+        }
+        setIsLoading(false);
+        return;
       }
+
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_type')
+          .eq('id', data.user.id)
+          .single();
+
+        toast.success(language === 'ar' ? 'تم تسجيل الدخول بنجاح!' : 'Connexion réussie!');
+        
+        if (profile?.user_type === "pharmacy") {
+          navigate("/pharmacy-dashboard");
+        } else {
+          navigate("/home");
+        }
+      }
+    } catch (err) {
+      // Handle unexpected errors
+      if (retryCount < 3) {
+        toast.info(language === 'ar' ? 'جاري إعادة المحاولة...' : 'Nouvelle tentative...');
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        setIsLoading(false);
+        return handleLogin(e, retryCount + 1);
+      }
+      toast.error(language === 'ar' ? 'حدث خطأ غير متوقع. حاول مرة أخرى.' : 'Une erreur inattendue s\'est produite. Réessayez.');
     }
     setIsLoading(false);
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent, retryCount = 0) => {
     e.preventDefault();
     setIsLoading(true);
     
@@ -107,28 +133,46 @@ const Auth = () => {
       signupData.longitude = parseFloat(pharmacyLng);
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: signupData,
-        emailRedirectTo: `${window.location.origin}/`,
-      },
-    });
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: signupData,
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
 
-    if (error) {
-      if (error.message.includes('already registered')) {
-        toast.error(language === 'ar' ? 'البريد الإلكتروني مسجل مسبقاً' : 'Email déjà enregistré');
-      } else {
-        toast.error(language === 'ar' ? 'خطأ في التسجيل. حاول مرة أخرى.' : 'Erreur d\'inscription. Réessayez.');
+      if (error) {
+        if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('Failed to fetch')) {
+          if (retryCount < 3) {
+            toast.info(language === 'ar' ? 'جاري إعادة المحاولة...' : 'Nouvelle tentative...');
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+            setIsLoading(false);
+            return handleSignup(e, retryCount + 1);
+          }
+          toast.error(language === 'ar' ? 'مشكلة في الاتصال بالشبكة. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.' : 'Problème de connexion réseau. Vérifiez votre connexion internet.');
+        } else if (error.message.includes('already registered')) {
+          toast.error(language === 'ar' ? 'البريد الإلكتروني مسجل مسبقاً' : 'Email déjà enregistré');
+        } else {
+          toast.error(language === 'ar' ? 'خطأ في التسجيل. حاول مرة أخرى.' : 'Erreur d\'inscription. Réessayez.');
+        }
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
-      return;
-    }
 
-    if (data.user) {
-      toast.success(language === 'ar' ? 'تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. يرجى التحقق منه لإكمال التسجيل.' : 'Un email de confirmation a été envoyé. Veuillez vérifier votre boîte mail pour compléter l\'inscription.');
-      setIsLogin(true);
+      if (data.user) {
+        toast.success(language === 'ar' ? 'تم إرسال رسالة تأكيد إلى بريدك الإلكتروني. يرجى التحقق منه لإكمال التسجيل.' : 'Un email de confirmation a été envoyé. Veuillez vérifier votre boîte mail pour compléter l\'inscription.');
+        setIsLogin(true);
+      }
+    } catch (err) {
+      if (retryCount < 3) {
+        toast.info(language === 'ar' ? 'جاري إعادة المحاولة...' : 'Nouvelle tentative...');
+        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+        setIsLoading(false);
+        return handleSignup(e, retryCount + 1);
+      }
+      toast.error(language === 'ar' ? 'حدث خطأ غير متوقع. حاول مرة أخرى.' : 'Une erreur inattendue s\'est produite. Réessayez.');
     }
     setIsLoading(false);
   };
